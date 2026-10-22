@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.gitignore
+dataset
+torob-dataset
+brainstorming
+fordi-skill
+__MACOSX
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+scripts/e2e.mjs

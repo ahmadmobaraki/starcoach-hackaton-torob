@@ -1,0 +1,43 @@
+@theme {
+  --color-bg: #f4f1ea;
+  --color-surface: #ffffff;
+  --color-muted: #5f6b63;
+  --color-line: #ddd7cb;
+  --color-ink: #16211b;
+  --color-accent: #0b6b53;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: #e4f1ec;
+  --color-warning: #9a5700;
+  --color-warning-soft: #fbf0db;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+  --color-info: #1d4e89;
+  --color-info-soft: #e8f0f9;
+
+  --font-sans: var(--font-vazirmatn), "Vazirmatn", Tahoma, sans-serif;
+  --font-display: var(--font-vazirmatn), "Vazirmatn", Tahoma, sans-serif;
+
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-full: 999px;
+
+  --shadow-card: 0 12px 30px rgba(22, 33, 27, 0.08), 0 2px 6px rgba(22, 33, 27, 0.05);
+  --shadow-lift: 0 20px 50px rgba(22, 33, 27, 0.14), 0 4px 10px rgba(22, 33, 27, 0.06);
+  --shadow-pin: 0 6px 16px rgba(11, 107, 83, 0.28);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-stamp: stamp-in 520ms var(--ease-out) both;
+  --animate-rise: rise-in 420ms var(--ease-out) both;
+}
+
+@keyframes stamp-in {
+  0% { opacity: 0; transform: scale(1.18) rotate(-4deg); }
+  60% { opacity: 1; transform: scale(0.98) rotate(-2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-2deg); }
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

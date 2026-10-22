@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" width="900" height="520" role="img" aria-labelledby="title desc">
+  <title id="title">Shopping route map</title>
+  <desc id="desc">A minimal illustrated city map with a blue walking route connecting footwear, tools, and clothing shops.</desc>
+  <defs>
+    <style>
+      .outline{stroke:#294b55;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+      .street{fill:none;stroke:#fffaf2;stroke-width:24;stroke-linecap:round;stroke-linejoin:round}
+      .street-edge{fill:none;stroke:#e8e2d7;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+      .route{fill:none;stroke:#2499e8;stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:10 12}
+      .pin{stroke:#fffaf2;stroke-width:3;stroke-linejoin:round}
+      .window{fill:#c8eafa;stroke-width:3}
+    </style>
+    <g id="tree">
+      <path d="M0 10V28" fill="none" stroke="#0b6b53" stroke-width="3" stroke-linecap="round"/>
+      <path d="M0-9C-12-9-15 3-9 11C-5 16 5 16 9 9C15 0 9-9 0-9Z" fill="#65b99d"/>
+    </g>
+    <g id="park">
+      <path d="M-58-34L25-43Q40-42 45-27L57 18Q58 32 43 37L-31 43Q-45 42-50 28L-64-17Q-67-29-58-34Z" fill="#d4e8c9"/>
+    </g>
+    <g id="shop">
+      <!-- building -->
+      <path d="M-43-2H43V48H-43Z" fill="#fffaf2" class="outline"/>
+      <!-- shop window -->
+      <rect x="-31" y="13" width="25" height="23" rx="1" fill="#c8eafa" stroke="currentColor" stroke-width="3"/>
+      <path d="M-27 32L-11 16" stroke="#fff" stroke-width="2" opacity=".8"/>
+      <!-- door -->
+      <path d="M12 15H31V48H12Z" fill="currentColor" stroke="currentColor" stroke-width="3"/>
+      <circle cx="26" cy="32" r="1.7" fill="#fffaf2"/>
+      <!-- striped awning -->
+      <path d="M-49-2L-40-22H40L49-2Z" fill="#fffaf2" class="outline"/>
+      <path d="M-40-22H-24L-31-2H-49Z" fill="currentColor"/>
+      <path d="M-24-22H-8L-13-2H-31Z" fill="#fffaf2"/>
+      <path d="M-8-22H8L5-2H-13Z" fill="currentColor"/>
+      <path d="M8-22H24L23-2H5Z" fill="#fffaf2"/>
+      <path d="M24-22H40L49-2H23Z" fill="currentColor"/>
+      <path d="M-49-2Q-49 8-40 8Q-31 8-31-2Q-31 8-22 8Q-13 8-13-2Q-13 8-4 8Q5 8 5-2Q5 8 14 8Q23 8 23-2Q23 8 32 8Q41 8 41-2L49-2" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M-48 49H47" fill="none" stroke="#294b55" stroke-width="4" stroke-linecap="round"/>
+    </g>
+  </defs>
+
+  <!-- paper map -->
+  <rect width="900" height="520" rx="22" fill="#f4f1ea"/>
+
+  <!-- faint block shapes -->
+  <g fill="#eee8dc" opacity=".8">
+    <path d="M-20 40L130 0H205L220 42L100 100L-15 94Z"/>
+    <path d="M265-15L375-15L407 53L338 101L280 77Z"/>
+    <path d="M475-10L610-10L642 54L574 103L494 64Z"/>
+    <path d="M700 24L838 0L920 64L894 127L785 112L730 78Z"/>
+    <path d="M-30 183L78 126L144 163L111 235L-10 263Z"/>
+    <path d="M210 132L318 105L374 154L341 222L244 222L194 181Z"/>
+    <path d="M412 119L492 92L546 145L523 210L444 205L402 165Z"/>
+    <path d="M626 146L710 120L755 171L730 232L651 225L614 186Z"/>
+    <path d="M120 300L205 257L268 292L249 355L160 369L110 338Z"/>
+    <path d="M344 290L432 246L499 281L484 345L393 363L335 331Z"/>
+    <path d="M570 290L657 253L719 292L701 355L613 375L558 334Z"/>
+    <path d="M-10 420L86 370L150 407L126 475L38 500L-15 472Z"/>
+    <path d="M245 414L330 379L397 412L378 482L292 504L233 466Z"/>
+    <path d="M466 420L553 378L622 416L600 484L517 505L455 467Z"/>
+    <path d="M704 414L791 379L875 420L891 485L793 518L720 476Z"/>
+  </g>
+
+  <!-- city streets -->
+  <g>
+    <path class="street" d="M-20 117L170 66L302 111L405 66L550 111L704 66L920 122"/>
+    <path class="street" d="M-20 274L130 222L272 260L414 213L565 255L730 213L920 267"/>
+    <path class="street" d="M-20 390L151 343L300 389L445 350L593 397L747 350L920 402"/>
+    <path class="street" d="M155-20L193 115L161 229L208 340L174 540"/>
+    <path class="street" d="M355-20L393 111L361 222L405 340L370 540"/>
+    <path class="street" d="M590-20L626 113L598 226L642 343L611 540"/>
+    <path class="street" d="M790-20L825 115L793 230L838 344L804 540"/>
+    <path class="street-edge" d="M-20 117L170 66L302 111L405 66L550 111L704 66L920 122"/>
+    <path class="street-edge" d="M-20 274L130 222L272 260L414 213L565 255L730 213L920 267"/>
+    <path class="street-edge" d="M-20 390L151 343L300 389L445 350L593 397L747 350L920 402"/>
+  </g>
+
+  <!-- parks -->
+  <use href="#park" transform="translate(70 165) rotate(-15) scale(1.1)"/>
+  <use href="#park" transform="translate(805 160) rotate(16) scale(1.15)"/>
+  <use href="#park" transform="translate(658 442) rotate(-14) scale(1.1)"/>
+  <use href="#park" transform="translate(245 442) rotate(8) scale(.75)"/>
+  <use href="#tree" transform="translate(66 159) scale(1.2)"/>
+  <use href="#tree" transform="translate(814 153) scale(1.15)"/>
+  <use href="#tree" transform="translate(655 431) scale(1.15)"/>
+
+  <!-- river on the right -->
+  <path d="M890-30C820 39 884 106 844 168S862 272 817 325S827 429 876 550" fill="none" stroke="#a8dcf3" stroke-width="52" stroke-linecap="round"/>
+  <path d="M890-30C820 39 884 106 844 168S862 272 817 325S827 429 876 550" fill="none" stroke="#d5f0fb" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- route behind the stores -->
+  <path class="route" d="M180 286C226 308 270 308 296 343S319 419 390 423S461 377 505 364S617 382 660 335S727 284 756 286"/>
+  <g fill="#2499e8" stroke="#f4f1ea" stroke-width="4">
+    <circle cx="180" cy="286" r="10"/><circle cx="390" cy="423" r="10"/><circle cx="660" cy="335" r="10"/><circle cx="756" cy="286" r="10"/>
+  </g>
+
+  <!-- footwear store, upper-left -->
+  <g transform="translate(190 218)" style="color:#d64545">
+    <ellipse cx="0" cy="53" rx="69" ry="16" fill="#f4d7d2" opacity=".8"/>
+    <use href="#shop" transform="translate(0 37) scale(.88)"/>
+    <path d="M0-59C-23-59-34-40-23-20L0 9L23-20C34-40 23-59 0-59Z" fill="#d64545" class="pin"/>
+    <circle cx="0" cy="-40" r="7" fill="#fffaf2"/>
+    <circle cx="0" cy="-103" r="45" fill="#fffaf2" stroke="#b42318" stroke-width="3"/>
+    <!-- sneaker icon -->
+    <g transform="translate(0 -103)" stroke="#8f2928" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M-27 4L-23-11Q-22-15-18-11L-8-4Q-2-2 4-8L10-13L22-2L30 2Q35 5 31 11Q27 15 13 15H-22Q-30 15-27 4Z" fill="#ed7770"/>
+      <path d="M-27 7Q0 11 32 7L31 12Q26 17 13 17H-22Q-30 17-27 7Z" fill="#fffaf2"/>
+      <path d="M3-5L8 0M10-8L15-3M17-5L21-1" fill="none" stroke="#fffaf2" stroke-width="2.5"/>
+    </g>
+  </g>
+
+  <!-- tools store, lower-middle -->
+  <g transform="translate(500 330)" style="color:#0b6b53">
+    <ellipse cx="0" cy="53" rx="70" ry="16" fill="#cce8dc" opacity=".9"/>
+    <use href="#shop" transform="translate(0 37) scale(.88)"/>
+    <path d="M0-59C-23-59-34-40-23-20L0 9L23-20C34-40 23-59 0-59Z" fill="#0b6b53" class="pin"/>
+    <circle cx="0" cy="-40" r="7" fill="#fffaf2"/>
+    <circle cx="0" cy="-103" r="45" fill="#fffaf2" stroke="#0b6b53" stroke-width="3"/>
+    <!-- crossed wrench and hammer -->
+    <g transform="translate(0 -103)" stroke="#294b55" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M-25-18A14 14 0 0 0-7-2L17 23Q21 27 25 23Q28 19 24 15L0-9A14 14 0 0 0-17-27L-11-18L-17-12Z" fill="#46a7c7"/>
+      <path d="M18-26L29-15L24-10L28-6L21 1L17-3L12 2L1-9L6-14L2-18L9-25L13-21Z" fill="#ed7770"/>
+      <path d="M17-5L-15 26Q-19 29-23 25Q-26 21-22 17L8-14" fill="#ed7770"/>
+    </g>
+  </g>
+
+  <!-- clothing store, upper-right -->
+  <g transform="translate(755 218)" style="color:#258ed0">
+    <ellipse cx="0" cy="53" rx="69" ry="16" fill="#cbe9f7" opacity=".95"/>
+    <use href="#shop" transform="translate(0 37) scale(.88)"/>
+    <path d="M0-59C-23-59-34-40-23-20L0 9L23-20C34-40 23-59 0-59Z" fill="#258ed0" class="pin"/>
+    <circle cx="0" cy="-40" r="7" fill="#fffaf2"/>
+    <circle cx="0" cy="-103" r="45" fill="#fffaf2" stroke="#258ed0" stroke-width="3"/>
+    <!-- dress on hanger -->
+    <g transform="translate(0 -103)" stroke="#1c5f8a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M0-30C0-38 10-37 10-30Q10-26 2-23M-22-13L0-22L22-13" fill="none"/>
+      <path d="M-9-17L-15-9L-10-2L-23 22Q0 31 23 22L10-2L15-9L9-17L0-12Z" fill="#ed7770"/>
+      <path d="M-10-2Q0 3 10-2" fill="none"/>
+    </g>
+  </g>
+</svg>
