@@ -11,6 +11,7 @@
 - Docker image: `hamqadam:local`, 598 MB, healthy.
 - Dataset: 6,476 shops / 225,903 products / 331,506 offers.
 - Owner inbox: arbitrary free-text replies update the buyer run in about two seconds.
+- 2026-10-22: brand accent moved from green `#0b6b53` to dark red `#9b1c1c` (tokens, favicon, map pins). Home screen simplified after a UI playground session (`ui-ux-playground`, since removed): hero headline/stat card/examples row/how-it-works/dataset-note/trust row removed; request textarea is single-row; the form label is «همه فروشگاه‌های محل، کف دست شما!»; the credit-payment checkbox lost its scarcity sub-sentence. `scripts/e2e.mjs` was updated to seed the query since «دموی آماده» no longer exists. Home also gained a map-based location fallback (`components/LocationPicker.tsx`): a Leaflet modal where a user who cannot or will not share GPS taps/drags a pin (5 km radius preview) and «نزدیک من» uses that point; geolocation denial now opens the picker instead of a dead-end error.
 - Remaining: push the image to Liara and set env vars. Video recording is left to the presenter; `demo-script.md` has the shot list.
 
 ## 1. The bet

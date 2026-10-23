@@ -27,7 +27,16 @@ async function clickText(text) {
 await page.goto(base + "/", { waitUntil: "networkidle0" });
 await page.screenshot({ path: "/tmp/hamqadam-home.png", fullPage: true });
 
-await clickText("دموی آماده");
+await clickText("گوشی");
+await page.evaluate(() => {
+  const setter = Object.getOwnPropertyDescriptor(
+    window.HTMLTextAreaElement.prototype,
+    "value",
+  ).set;
+  const el = document.getElementById("request");
+  setter.call(el, "یه گوشی سامسونگ S25 FE ۲۵۶ می‌خوام، تا ۲۰۰ میلیون، امروز می‌رم فردوسی، قسطی هم باشه خوبه.");
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+});
 await clickText("فروشگاه‌ها را پیدا کن");
 await page.waitForFunction(() => location.pathname === "/results", { timeout: 30000 });
 await page.waitForNetworkIdle({ idleTime: 700, timeout: 30000 }).catch(() => {});

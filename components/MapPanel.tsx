@@ -67,9 +67,9 @@ export default function MapPanel({
       const icon = L.divIcon({
         className: "",
         html: `<div style="direction:rtl;white-space:nowrap;transform:translate(-50%,-100%);background:${
-          selected ? "#0b6b53" : "#ffffff"
+          selected ? "#9b1c1c" : "#ffffff"
         };color:${selected ? "#ffffff" : "#16211b"};border:1px solid ${
-          selected ? "#0b6b53" : "#ddd7cb"
+          selected ? "#9b1c1c" : "#ddd7cb"
         };border-radius:999px;padding:5px 8px;font-family:Vazirmatn,Tahoma,sans-serif;font-size:11px;font-weight:700;box-shadow:0 6px 16px rgba(22,33,27,.18);">${priceLabel}</div>`,
         iconSize: [0, 0],
         iconAnchor: [0, 0],

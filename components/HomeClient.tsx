@@ -1,19 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
-  ArrowLeft,
-  BadgeCheck,
-  Clock,
-  Info,
   Lightbulb,
+  Map,
   MapPin,
   Search,
-  ShieldCheck,
   Smartphone,
-  Sparkles,
-  Store,
   Wallet,
   Watch,
   Wrench,
@@ -21,7 +16,10 @@ import {
 } from "lucide-react";
 import type { CategoryGroup, Intent, SearchResult } from "@/lib/types";
 import { DEMO_QUERY } from "@/lib/demo";
-import { formatNumber } from "@/lib/format";
+
+const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
+  ssr: false,
+});
 
 type CategoryOption = {
   id: CategoryGroup;
@@ -71,6 +69,8 @@ export function HomeClient() {
   const [text, setText] = useState("");
   const [areaLabel, setAreaLabel] = useState("فردوسی و شیخ هادی");
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [coordsSource, setCoordsSource] = useState<"gps" | "map" | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [budgetMillion, setBudgetMillion] = useState("");
   const [requireCredit, setRequireCredit] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -89,25 +89,37 @@ export function HomeClient() {
     if (label !== "نزدیک من") {
       setAreaLabel(label);
       setCoords(null);
+      setCoordsSource(null);
       return;
     }
     if (!navigator.geolocation) {
-      setError("مرورگر شما موقعیت مکانی را پشتیبانی نمی‌کند.");
+      setError("مرورگر شما موقعیت مکانی را پشتیبانی نمی‌کند؛ نقطه‌ی محدوده را روی نقشه انتخاب کن.");
+      setPickerOpen(true);
       return;
     }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setCoords({ lat: position.coords.latitude, lon: position.coords.longitude });
+        setCoordsSource("gps");
         setAreaLabel("نزدیک من");
         setLocating(false);
       },
       () => {
-        setError("دسترسی به موقعیت مکانی داده نشد. محدوده را دستی انتخاب کنید.");
         setLocating(false);
+        setError("دسترسی به موقعیت مکانی داده نشد؛ نقطه‌ی محدوده را روی نقشه انتخاب کن.");
+        setPickerOpen(true);
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
     );
+  }
+
+  function confirmPickedPoint(lat: number, lon: number) {
+    setCoords({ lat, lon });
+    setCoordsSource("map");
+    setAreaLabel("نزدیک من");
+    setError(null);
+    setPickerOpen(false);
   }
 
   async function submit(event: React.FormEvent) {
@@ -159,40 +171,20 @@ export function HomeClient() {
   return (
     <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-8">
       <section className="relative">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[30px] font-extrabold leading-[1.35] tracking-tight sm:text-[38px]">
-              قبل از رفتن،
-              <br />
-              <span className="text-accent">مطمئن شو.</span>
-            </h1>
-            <p className="mt-3 max-w-md text-sm leading-7 text-muted">
-              می‌گیم کدوم فروشگاه واقعاً داره، چقدر، تا کی بازه — و اگر نبود، کجا بری.
-            </p>
-          </div>
-          <div className="hidden shrink-0 rotate-[-2deg] rounded-lg border border-dashed border-accent/35 bg-accent-soft px-3 py-2 text-center sm:block">
-            <div className="text-[11px] text-accent">قیمت ثبت‌شده</div>
-            <div className="mt-1 text-sm font-extrabold text-accent">
-              {formatNumber(331506)}
-            </div>
-            <div className="text-[10px] text-accent/80">در ۶٬۴۷۶ فروشگاه</div>
-          </div>
-        </div>
-
         <form
           onSubmit={submit}
           className="mt-6 rounded-lg border border-line bg-surface p-4 shadow-card sm:p-5"
         >
           <label htmlFor="request" className="text-sm font-bold">
-            چی می‌خوای بخری؟
+            همه فروشگاه‌های محل، کف دست شما!
           </label>
           <textarea
             id="request"
             value={text}
             onChange={(event) => setText(event.target.value)}
-            rows={3}
+            rows={1}
             placeholder="مثلاً: گوشی سامسونگ S25 FE ۲۵۶ تا ۲۰۰ میلیون، فردوسی"
-            className="mt-2 w-full resize-none rounded-md border border-line bg-bg px-3 py-3 text-[15px] leading-8 outline-none transition-colors placeholder:text-muted/80 focus:border-accent"
+            className="mt-2 w-full resize-none rounded-md border border-line bg-bg px-3 py-2.5 text-[15px] leading-7 outline-none transition-colors placeholder:text-muted/80 focus:border-accent"
           />
 
           <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="دسته محصول">
@@ -239,7 +231,20 @@ export function HomeClient() {
                     {locating && area === "نزدیک من" ? "در حال یافتن…" : area}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-dashed border-accent/40 px-3 text-xs text-accent transition-colors hover:bg-accent-soft"
+                >
+                  <Map size={13} />
+                  انتخاب روی نقشه
+                </button>
               </div>
+              {areaLabel === "نزدیک من" && coordsSource === "map" ? (
+                <p className="mt-1.5 text-[10px] leading-5 text-muted">
+                  نقطه‌ی انتخابی روی نقشه ثبت شد؛ جست‌وجو در شعاع ۵ کیلومترِ همان نقطه انجام می‌شود.
+                </p>
+              ) : null}
             </div>
             <div>
               <label htmlFor="budget" className="mb-1.5 flex items-center gap-1 text-[11px] text-muted">
@@ -264,11 +269,7 @@ export function HomeClient() {
               onChange={(event) => setRequireCredit(event.target.checked)}
               className="mt-1 size-4 accent-[var(--color-accent)]"
             />
-            <span>
-              فقط فروشگاه‌هایی که پرداخت اعتباری دارند
-              <span className="mx-1 text-line">·</span>
-              در این دیتاست کم هستند؛ اگر چیزی پیدا نشد، خاموشش کن.
-            </span>
+            <span>فقط فروشگاه‌هایی که پرداخت اعتباری دارند</span>
           </label>
 
           {error ? (
@@ -298,93 +299,16 @@ export function HomeClient() {
             قیمت‌ها ثبت‌شده‌اند؛ موجودی را قبل از رفتن از فروشگاه می‌پرسیم.
           </p>
         </form>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
-          <span className="flex items-center gap-1 text-[11px]">
-            <Sparkles size={13} className="text-accent" />
-            نمونه:
-          </span>
-          {[CATEGORIES[0], CATEGORIES[1], CATEGORIES[2]].map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => {
-                setCategory(option.id);
-                setText(option.example);
-              }}
-              className="rounded-full border border-line bg-surface px-2.5 py-1 text-[11px] text-muted transition-colors hover:border-accent/40 hover:text-ink"
-            >
-              {option.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              setCategory("phone");
-              setText(DEMO_QUERY);
-            }}
-            className="rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-medium text-accent"
-          >
-            دموی آماده
-          </button>
-        </div>
       </section>
 
-      <section className="mt-10">
-        <h2 className="text-sm font-bold">یک سفر خرید، بدون سه بار «نداریم»</h2>
-        <div className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface">
-          {[
-            {
-              icon: <Search size={18} />,
-              title: "دقیق می‌فهمیم چه می‌خواهی",
-              text: "مدل، حافظه، بودجه، محدوده و شرایط پرداخت را از جمله‌ی فارسی درمی‌آوریم.",
-            },
-            {
-              icon: <Store size={18} />,
-              title: "از فروشگاه می‌پرسیم",
-              text: "به چند فروشگاه نزدیک پیام می‌دهیم و پاسخشان را می‌خوانیم؛ نه اینکه قیمت هفته‌ی پیش را «موجود» بنامیم.",
-            },
-            {
-              icon: <BadgeCheck size={18} />,
-              title: "برنامه‌ی رفتن می‌سازیم",
-              text: "فروشگاه اصلی، جایگزین، ساعت مناسب و چک‌لیست همراهت می‌شود.",
-            },
-          ].map((row) => (
-            <div key={row.title} className="flex items-start gap-3 px-4 py-3">
-              <span className="mt-0.5 text-accent">{row.icon}</span>
-              <div>
-                <div className="text-xs font-bold">{row.title}</div>
-                <p className="mt-0.5 text-[11px] leading-6 text-muted">{row.text}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-8 flex items-start gap-2 rounded-md bg-surface px-4 py-3 text-[11px] leading-6 text-muted ring-1 ring-line">
-        <Info size={15} className="mt-1 shrink-0 text-accent" />
-        <p>
-          این نسخه روی دیتاست نمایشی ترب کار می‌کند. نام و شماره‌ی بخشی از فروشگاه‌ها نمایشی است؛
-          قیمت ثبت‌شده با موجودی تأییدشده یکی نیست و هر کدام برچسب جدا دارند.
-        </p>
-      </section>
-
-      <div className="mt-6 flex items-center justify-center gap-3 text-[11px] text-muted">
-        <span className="flex items-center gap-1">
-          <ShieldCheck size={13} />
-          تأیید از فروشنده
-        </span>
-        <span className="text-line">·</span>
-        <span className="flex items-center gap-1">
-          <Clock size={13} />
-          ساعت کاری اعلام‌شده
-        </span>
-        <span className="text-line">·</span>
-        <span className="flex items-center gap-1">
-          <ArrowLeft size={13} />
-          مسیر و جایگزین
-        </span>
-      </div>
+      {pickerOpen ? (
+        <LocationPicker
+          initialLat={coords?.lat ?? null}
+          initialLon={coords?.lon ?? null}
+          onClose={() => setPickerOpen(false)}
+          onConfirm={confirmPickedPoint}
+        />
+      ) : null}
     </main>
   );
 }
