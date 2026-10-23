@@ -15,7 +15,14 @@ import {
   Watch,
   Wrench,
 } from "lucide-react";
-import type { CategoryGroup, Intent, SearchResult } from "@/lib/types";
+import { formatToman } from "@/lib/format";
+import type {
+  CategoryGroup,
+  Intent,
+  SearchFailure,
+  SearchResult,
+  SearchSuggestion,
+} from "@/lib/types";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
   ssr: false,
@@ -55,6 +62,14 @@ type PendingSearch = {
   areaLabel: string;
 };
 
+type FailureState = SearchFailure & {
+  message: string;
+  intent: Intent;
+  productLabel: string;
+  areaLabel: string;
+  productId?: string;
+};
+
 function areaPhrase(label: string): string {
   if (label === "همه تهران") return "در همه تهران";
   if (label === "نزدیک من") return "در محدوده نزدیک تو";
@@ -82,6 +97,7 @@ export function HomeClient() {
   const [correcting, setCorrecting] = useState(false);
   const [manualCategory, setManualCategory] = useState<CategoryGroup | null>(null);
   const [manualArea, setManualArea] = useState<string | null>(null);
+  const [failure, setFailure] = useState<FailureState | null>(null);
 
   const categoryOptions = extraCategory ? [...CATEGORIES, extraCategory] : CATEGORIES;
   const areaOptions = [...AREAS, ...extraAreas];
@@ -108,12 +124,14 @@ export function HomeClient() {
   function chooseCategory(option: CategoryOption) {
     setCategory(option.id);
     if (correcting) setManualCategory(option.id);
+    setFailure(null);
     setHint(null);
   }
 
   async function chooseArea(label: string) {
     setError(null);
     setHint(null);
+    setFailure(null);
     if (label !== "نزدیک من") {
       setAreaLabel(label);
       if (correcting) setManualArea(label);
@@ -150,6 +168,7 @@ export function HomeClient() {
     setAreaLabel("نزدیک من");
     if (correcting) setManualArea("نزدیک من");
     setHint(null);
+    setFailure(null);
     setError(null);
     setPickerOpen(false);
   }
@@ -165,12 +184,17 @@ export function HomeClient() {
     if (!canSubmit) return;
     setError(null);
     setHint(null);
+    setFailure(null);
 
     const typed = text.trim();
 
     if (!typed) {
       if (!category || !areaLabel) return;
       const option = categoryOptions.find((item) => item.id === category);
+      const context = {
+        productLabel: option?.label ?? "این محصول",
+        areaLabel,
+      };
       const intent = withBudget({
         rawText: category === "other" ? option?.label ?? "" : "",
         category,
@@ -178,12 +202,8 @@ export function HomeClient() {
         payment: { creditPreferred: false, requireCredit, providers: [] },
         openNow: false,
       });
-      setPending({
-        intent,
-        productLabel: option?.label ?? "این محصول",
-        areaLabel,
-      });
-      setStage("confirm");
+      setPending({ intent, ...context });
+      await runSearch(intent, context);
       return;
     }
 
@@ -251,15 +271,27 @@ export function HomeClient() {
       ].filter((part): part is string => Boolean(part && part.length > 0));
       const productLabel = productBits.length > 0 ? productBits.join(" ") : "این محصول";
 
+      const resolvedCategoryValue = resolvedCategory!;
+      const resolvedAreaValue = resolvedArea!;
       const intent = withBudget({
         ...parsed.intent,
-        category: resolvedCategory!,
-        area: buildArea(resolvedArea!),
+        category: resolvedCategoryValue,
+        area: buildArea(resolvedAreaValue),
         payment: { ...parsed.intent.payment, requireCredit },
       });
+      const context = { productLabel, areaLabel: resolvedAreaValue };
+      setPending({ intent, ...context });
 
-      setPending({ intent, productLabel, areaLabel: resolvedArea! });
-      setStage("confirm");
+      const dynamicCategory = resolvedCategoryValue === "other";
+      const dynamicArea = !AREAS.includes(resolvedAreaValue);
+      const needsConfirmation =
+        (dynamicCategory && manualCategory === null) || (dynamicArea && manualArea === null);
+      if (needsConfirmation) {
+        setStage("confirm");
+        return;
+      }
+
+      await runSearch(intent, context);
     } catch (err) {
       setError(err instanceof Error ? err.message : "چیزی درست پیش نرفت. دوباره تلاش کنید.");
     } finally {
@@ -267,17 +299,40 @@ export function HomeClient() {
     }
   }
 
-  async function runSearch(intent: Intent) {
+  async function runSearch(
+    intent: Intent,
+    context: { productLabel: string; areaLabel: string },
+    productId?: string,
+  ) {
     setLoading(true);
     setError(null);
+    setFailure(null);
     try {
       const searchResponse = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intent }),
+        body: JSON.stringify(productId ? { intent, productId } : { intent }),
       });
       if (!searchResponse.ok) {
-        const payload = (await searchResponse.json().catch(() => ({}))) as { error?: string };
+        const payload = (await searchResponse.json().catch(() => ({}))) as Partial<SearchFailure> & {
+          error?: string;
+        };
+        if (searchResponse.status === 404 && payload.reason) {
+          setStage("input");
+          setPending(null);
+          setHint(null);
+          setFailure({
+            reason: payload.reason,
+            broaderArea: Boolean(payload.broaderArea),
+            suggestions: Array.isArray(payload.suggestions) ? payload.suggestions : [],
+            message: `${areaPhrase(context.areaLabel)} فروشگاهی برای «${context.productLabel}» پیدا نشد.`,
+            intent,
+            productLabel: context.productLabel,
+            areaLabel: context.areaLabel,
+            productId,
+          });
+          return;
+        }
         throw new Error(payload.error ?? "محصولی پیدا نشد.");
       }
       const result = (await searchResponse.json()) as SearchResult;
@@ -291,14 +346,56 @@ export function HomeClient() {
   }
 
   function confirmSearch() {
-    if (pending) void runSearch(pending.intent);
+    if (pending) {
+      void runSearch(pending.intent, {
+        productLabel: pending.productLabel,
+        areaLabel: pending.areaLabel,
+      });
+    }
   }
 
   function rejectSearch() {
     setStage("input");
     setPending(null);
+    setFailure(null);
     setCorrecting(true);
     setHint("محدوده یا محصول را اصلاح کن و دوباره بفرست.");
+  }
+
+  async function retryBroaderArea() {
+    if (!failure) return;
+    const widerIntent: Intent = {
+      ...failure.intent,
+      area: { label: "همه تهران", radiusKm: 30 },
+    };
+    const context = { productLabel: failure.productLabel, areaLabel: "همه تهران" };
+    const productId = failure.productId;
+    setAreaLabel("همه تهران");
+    setCoords(null);
+    setCoordsSource(null);
+    setFailure(null);
+    setHint(null);
+    setPending({ intent: widerIntent, ...context });
+    await runSearch(widerIntent, context, productId);
+  }
+
+  async function retrySuggestion(suggestion: SearchSuggestion) {
+    if (!failure) return;
+    const intent: Intent = {
+      ...failure.intent,
+      rawText: suggestion.title,
+      model: suggestion.title,
+    };
+    const context = { productLabel: suggestion.title, areaLabel: failure.areaLabel };
+    setText(suggestion.title);
+    setFailure(null);
+    setHint(null);
+    setError(null);
+    setCorrecting(false);
+    setManualCategory(null);
+    setManualArea(null);
+    setPending({ intent, ...context });
+    await runSearch(intent, context, suggestion.productId);
   }
 
   return (
@@ -356,6 +453,7 @@ export function HomeClient() {
                 onChange={(event) => {
                   setText(event.target.value);
                   setHint(null);
+                  setFailure(null);
                   setCorrecting(false);
                   setManualCategory(null);
                   setManualArea(null);
@@ -364,6 +462,51 @@ export function HomeClient() {
                 placeholder="مثلاً: گوشی سامسونگ S25 FE ۲۵۶ تا ۲۰۰ میلیون، فردوسی"
                 className="mt-2 w-full resize-none rounded-md border border-line bg-bg px-3 py-2.5 text-[15px] leading-7 outline-none transition-colors placeholder:text-muted/80 focus:border-accent"
               />
+
+              {failure ? (
+                <div className="mt-3 rounded-md border border-danger/25 bg-danger-soft px-3 py-3" role="alert">
+                  <p className="text-xs leading-6 text-danger">{failure.message}</p>
+                  {failure.broaderArea ? (
+                    <button
+                      type="button"
+                      onClick={() => void retryBroaderArea()}
+                      disabled={loading}
+                      className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 text-xs font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Map size={14} />
+                      جست‌وجو در همه تهران
+                    </button>
+                  ) : null}
+                  {failure.suggestions.length > 0 ? (
+                    <div className="mt-3">
+                      <p className="text-[11px] leading-5 text-muted">شاید منظورت یکی از این‌ها باشد:</p>
+                      <div className="mt-2 grid gap-1.5">
+                        {failure.suggestions.map((suggestion) => (
+                          <button
+                            key={suggestion.productId}
+                            type="button"
+                            onClick={() => void retrySuggestion(suggestion)}
+                            disabled={loading}
+                            className="flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 text-start text-xs transition-colors hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <span className="min-w-0 truncate">{suggestion.title}</span>
+                            {suggestion.minPrice != null ? (
+                              <span className="shrink-0 text-[10px] text-muted">
+                                {formatToman(suggestion.minPrice)}
+                              </span>
+                            ) : null}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {!failure.broaderArea && failure.suggestions.length === 0 ? (
+                    <p className="mt-2 text-[11px] leading-5 text-muted">
+                      محصول یا محدوده را دقیق‌تر مشخص کن و دوباره بفرست.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
                 <div>
@@ -415,7 +558,10 @@ export function HomeClient() {
                     id="budget"
                     inputMode="numeric"
                     value={budgetMillion}
-                    onChange={(event) => setBudgetMillion(event.target.value)}
+                    onChange={(event) => {
+                      setBudgetMillion(event.target.value);
+                      setFailure(null);
+                    }}
                     placeholder="۲۰۰"
                     className="min-h-10 w-full rounded-md border border-line bg-bg px-3 text-sm outline-none transition-colors focus:border-accent sm:w-36"
                   />
@@ -452,7 +598,10 @@ export function HomeClient() {
                 <input
                   type="checkbox"
                   checked={requireCredit}
-                  onChange={(event) => setRequireCredit(event.target.checked)}
+                  onChange={(event) => {
+                    setRequireCredit(event.target.checked);
+                    setFailure(null);
+                  }}
                   className="size-4 shrink-0 accent-[var(--color-accent)]"
                 />
                 <span>فقط خرید اعتباری</span>

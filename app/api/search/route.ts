@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { search } from "@/lib/search";
+import { diagnoseSearch, search } from "@/lib/search";
 import type { Intent } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -14,7 +14,10 @@ export async function POST(request: Request) {
     const result = search(body.intent, body.productId);
     if (!result) {
       return NextResponse.json(
-        { error: "برای این محدوده یا محصول، قیمت ثبت‌شده‌ای پیدا نشد." },
+        {
+          error: "برای این محدوده یا محصول، قیمت ثبت‌شده‌ای پیدا نشد.",
+          ...diagnoseSearch(body.intent),
+        },
         { status: 404 },
       );
     }

@@ -38,11 +38,6 @@ await page.evaluate(() => {
   el.dispatchEvent(new Event("input", { bubbles: true }));
 });
 await clickText("فروشگاه‌ها را پیدا کن");
-await page.waitForFunction(
-  () => [...document.querySelectorAll("button")].some((node) => (node.textContent || "").trim() === "بله"),
-  { timeout: 30000 },
-);
-await clickText("بله");
 await page.waitForFunction(() => location.pathname === "/results", { timeout: 30000 });
 await page.waitForNetworkIdle({ idleTime: 700, timeout: 30000 }).catch(() => {});
 await page.screenshot({ path: "/tmp/hamqadam-results.png", fullPage: true });

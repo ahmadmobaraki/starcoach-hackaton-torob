@@ -102,6 +102,18 @@ export type SearchResult = {
   facets: Facets;
 };
 
+export type SearchSuggestion = {
+  productId: string;
+  title: string;
+  minPrice: number | null;
+};
+
+export type SearchFailure = {
+  reason: "area" | "product" | "both";
+  broaderArea: boolean;
+  suggestions: SearchSuggestion[];
+};
+
 export type MessageRole = "buyer" | "owner" | "agent" | "system";
 
 export type Message = {

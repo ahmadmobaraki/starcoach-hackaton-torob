@@ -79,6 +79,7 @@ function detectBudget(text: string): number | undefined {
 function detectAreaLabel(text: string): string | null {
   if (/نزدیک من|این اطراف|همین حوالی/.test(text)) return "نزدیک من";
   if (/همه تهران|کل تهران|هر جای تهران/.test(text)) return "همه تهران";
+  if (/(?:^|\s)تهران(?:\s|$|،|\.)/.test(text)) return "همه تهران";
   if (/فردوسی|شیخ هادی|علاءالدین|پاساژ|بازار موبایل|جمهوری/.test(text)) {
     return "فردوسی و شیخ هادی";
   }
@@ -87,7 +88,7 @@ function detectAreaLabel(text: string): string | null {
 
 function canonicalAreaLabel(label: string): string {
   const trimmed = label.trim();
-  if (/همه تهران|کل تهران|هر جای تهران/.test(trimmed)) return "همه تهران";
+  if (/^(تهران|همه تهران|کل تهران|هر جای تهران)$/.test(trimmed)) return "همه تهران";
   if (/نزدیک من|این اطراف|همین حوالی/.test(trimmed)) return "نزدیک من";
   if (/فردوسی|شیخ هادی|علاءالدین|پاساژ|بازار موبایل|جمهوری/.test(trimmed)) {
     return "فردوسی و شیخ هادی";

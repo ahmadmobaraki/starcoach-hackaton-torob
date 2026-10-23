@@ -10,6 +10,7 @@ import type {
   OfferWithShop,
   PaymentProvider,
   ProductSummary,
+  SearchFailure,
   SearchResult,
   Shop,
 } from "./types";
@@ -57,7 +58,26 @@ const STOPWORDS = new Set([
   "یه", "یک", "و", "یا", "که", "هم", "باشه", "خوبه", "تومان", "تومن", "میلیون", "میلیارد",
   "هزار", "حافظه", "رم", "گیگابایت", "گیرم", "بخرم", "خرید", "قیمت", "فروشگاه", "نزدیک",
   "امروز", "فردا", "الان", "فردوسی", "شیخ", "هادی", "علاءالدین", "تهران", "قسطی", "اعتباری",
+  "در", "من", "محله", "محدوده", "خیابان", "کوچه", "بازار", "پاساژ", "منطقه", "اطراف", "حوالی",
 ]);
+
+function intentQuery(intent: Intent): string {
+  const structured = [intent.brand, intent.model]
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part))
+    .join(" ");
+  if (structured) return structured;
+
+  const areaTokens = new Set(
+    normalizeText(intent.area.label)
+      .split(" ")
+      .filter((token) => token.length >= 2),
+  );
+  return normalizeText(intent.rawText)
+    .split(" ")
+    .filter((token) => token.length > 0 && !areaTokens.has(token))
+    .join(" ");
+}
 
 const AREA_CENTERS: Record<string, { lat: number; lon: number }> = {
   "فردوسی و شیخ هادی": { lat: 35.6949, lon: 51.4118 },
@@ -418,15 +438,66 @@ export function search(intent: Intent, productId?: string): SearchResult | null 
     const product = getProductSummary(productId);
     if (!product) return null;
     const { offers, facets } = getOffers(product.productId, intent);
+    if (offers.length === 0) return null;
     return { product, offers, facets };
   }
 
-  const candidates = searchProductCandidates(intent.rawText, intent.category, 12);
+  const candidates = searchProductCandidates(intentQuery(intent), intent.category, 12);
   for (const product of candidates) {
     const { offers, facets } = getOffers(product.productId, intent);
     if (offers.length > 0) return { product, offers, facets };
   }
   return null;
+}
+
+export function diagnoseSearch(intent: Intent): SearchFailure {
+  const candidates = searchProductCandidates(intentQuery(intent), intent.category, 12);
+  const wideIntent: Intent = {
+    ...intent,
+    area: { label: "همه تهران", radiusKm: 30 },
+  };
+  const broaderArea = candidates.some(
+    (product) => getOffers(product.productId, wideIntent).offers.length > 0,
+  );
+  const vagueProduct = !intent.brand && !intent.model;
+  const reason: SearchFailure["reason"] =
+    candidates.length === 0
+      ? "product"
+      : broaderArea
+        ? vagueProduct
+          ? "both"
+          : "area"
+        : "product";
+
+  let suggestionProducts = candidates;
+  if (suggestionProducts.length === 0 && intent.category !== "other") {
+    suggestionProducts = searchProductCandidates("", intent.category, 6);
+  }
+  const seen = new Set<string>();
+  const suggestions =
+    reason === "area"
+      ? []
+      : suggestionProducts
+          .filter((product) => {
+            if (seen.has(product.productId)) return false;
+            seen.add(product.productId);
+            if (
+              intent.budgetMaxToman != null &&
+              product.minPrice != null &&
+              product.minPrice > intent.budgetMaxToman
+            ) {
+              return false;
+            }
+            return true;
+          })
+          .slice(0, 4)
+          .map((product) => ({
+            productId: product.productId,
+            title: product.title,
+            minPrice: product.minPrice,
+          }));
+
+  return { reason, broaderArea, suggestions };
 }
 
 export function searchAlternatives(
