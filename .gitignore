@@ -12,3 +12,7 @@ data/*.db-*
 ux/prototype
 .vercel
 *.tsbuildinfo
+torob-dataset/
+dataset/
+__MACOSX/
+**/._*
