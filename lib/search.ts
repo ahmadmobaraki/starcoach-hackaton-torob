@@ -3,6 +3,7 @@ import { normalizeText, shortAddress, toFaDigits } from "./format";
 import { getHoursStatus } from "./hours";
 import { rankOffers } from "./rank";
 import type {
+  BrandOption,
   CategoryGroup,
   Confirmation,
   Facets,
@@ -62,6 +63,9 @@ const STOPWORDS = new Set([
 ]);
 
 function intentQuery(intent: Intent): string {
+  const explicit = intent.query?.trim();
+  if (explicit) return explicit;
+
   const structured = [intent.brand, intent.model]
     .map((part) => part?.trim())
     .filter((part): part is string => Boolean(part))
@@ -193,6 +197,7 @@ export function searchProductCandidates(
 
   if (tokens.length === 0) {
     const groupClause = group === "other" ? "" : "AND p.category_group = @group";
+    const poolLimit = Math.max(limit * 8, 120);
     rows = db
       .prepare(
         `SELECT p.* FROM products p
@@ -200,9 +205,9 @@ export function searchProductCandidates(
          WHERE 1=1 ${groupClause}
          GROUP BY p.product_id
          ORDER BY COUNT(*) DESC
-         LIMIT @limit`,
+         LIMIT @poolLimit`,
       )
-      .all({ group, limit }) as ProductRow[];
+      .all({ group, poolLimit }) as ProductRow[];
   } else {
     const groupClause = group === "other" ? "" : "AND p.category_group = @group";
     const knownBrandTokens = tokens.filter((t) =>
@@ -433,19 +438,93 @@ export function getOffers(productId: string, intent: Intent): { offers: OfferWit
   return { offers: rankOffers(offers, intent), facets };
 }
 
+function brandOptions(
+  candidates: ProductSummary[],
+  intent: Intent,
+  primaryCategory: string | null,
+): BrandOption[] {
+  const options: BrandOption[] = [];
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    const brand = candidate.brand?.trim();
+    if (!brand || seen.has(brand)) continue;
+    if (primaryCategory && candidate.category !== primaryCategory) continue;
+    const { offers } = getOffers(candidate.productId, intent);
+    if (offers.length === 0) continue;
+    seen.add(brand);
+    const prices = offers
+      .map((offer) => offer.price)
+      .filter((price): price is number => price != null);
+    options.push({
+      brand,
+      productId: candidate.productId,
+      title: candidate.title,
+      minPrice: prices.length > 0 ? Math.min(...prices) : null,
+    });
+    if (options.length >= 8) break;
+  }
+  return options;
+}
+
+function searchWithin(
+  intent: Intent,
+  candidates: ProductSummary[],
+  includeBrands: boolean,
+): SearchResult | null {
+  for (const product of candidates) {
+    const { offers, facets } = getOffers(product.productId, intent);
+    if (offers.length > 0) {
+      return {
+        product,
+        offers,
+        facets,
+        brands: includeBrands ? brandOptions(candidates, intent, product.category) : [],
+      };
+    }
+  }
+  return null;
+}
+
 export function search(intent: Intent, productId?: string): SearchResult | null {
+  const broad = !intent.brand && !intent.model;
   if (productId) {
     const product = getProductSummary(productId);
     if (!product) return null;
     const { offers, facets } = getOffers(product.productId, intent);
     if (offers.length === 0) return null;
-    return { product, offers, facets };
+    const candidates = broad
+      ? searchProductCandidates(intentQuery(intent), intent.category, 60)
+      : [];
+    return {
+      product,
+      offers,
+      facets,
+      brands: broad ? brandOptions(candidates, intent, product.category) : [],
+    };
   }
 
-  const candidates = searchProductCandidates(intentQuery(intent), intent.category, 12);
-  for (const product of candidates) {
-    const { offers, facets } = getOffers(product.productId, intent);
-    if (offers.length > 0) return { product, offers, facets };
+  const candidates = searchProductCandidates(
+    intentQuery(intent),
+    intent.category,
+    broad ? 60 : 12,
+  );
+  const direct = searchWithin(intent, candidates, broad);
+  if (direct) return direct;
+
+  if (broad && intent.area.label !== "همه تهران") {
+    const widerIntent: Intent = {
+      ...intent,
+      area: { label: "همه تهران", radiusKm: 30 },
+    };
+    const wider = searchWithin(widerIntent, candidates, true);
+    if (wider) {
+      return {
+        ...wider,
+        appliedArea: widerIntent.area,
+        broadenedFrom: intent.area.label,
+        searchQuery: intentQuery(intent),
+      };
+    }
   }
   return null;
 }

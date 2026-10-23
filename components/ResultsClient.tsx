@@ -31,7 +31,13 @@ import {
   relativeTimeFa,
   toFaDigits,
 } from "@/lib/format";
-import type { CategoryGroup, Intent, OfferWithShop, SearchResult } from "@/lib/types";
+import type {
+  BrandOption,
+  CategoryGroup,
+  Intent,
+  OfferWithShop,
+  SearchResult,
+} from "@/lib/types";
 
 const MapPanel = dynamic(() => import("@/components/MapPanel"), {
   ssr: false,
@@ -132,15 +138,24 @@ export function ResultsClient() {
         throw new Error(payload.error ?? "نتیجه‌ای پیدا نشد.");
       }
       const result = (await response.json()) as SearchResult;
-      const next = { intent, result };
+      const appliedIntent = result.appliedArea
+        ? {
+            ...intent,
+            area: result.appliedArea,
+            query: result.searchQuery ?? intent.query,
+          }
+        : intent;
+      const next = { intent: appliedIntent, result };
       setState(next);
       sessionStorage.setItem("hamqadam:last", JSON.stringify(next));
-      setEditCategory(intent.category);
-      setEditArea(intent.area.label);
+      setEditCategory(appliedIntent.category);
+      setEditArea(appliedIntent.area.label);
       setEditBudget(
-        intent.budgetMaxToman ? String(Math.round(intent.budgetMaxToman / 1_000_000)) : "",
+        appliedIntent.budgetMaxToman
+          ? String(Math.round(appliedIntent.budgetMaxToman / 1_000_000))
+          : "",
       );
-      setEditCredit(intent.payment.requireCredit);
+      setEditCredit(appliedIntent.payment.requireCredit);
       if (categoryText) setShowEdit(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "جست‌وجو ناموفق بود.");
@@ -185,6 +200,33 @@ export function ResultsClient() {
       await runSearch(next, text);
     } catch (err) {
       setError(err instanceof Error ? err.message : "تغییر دسته ناموفق بود.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function switchBrand(option: BrandOption) {
+    if (!state || loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intent: state.intent, productId: option.productId }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error ?? "تغییر برند ناموفق بود.");
+      }
+      const result = (await response.json()) as SearchResult;
+      const next = { intent: state.intent, result };
+      setState(next);
+      sessionStorage.setItem("hamqadam:last", JSON.stringify(next));
+      setSelectedShopId(null);
+      setShowCompare(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "تغییر برند ناموفق بود.");
     } finally {
       setLoading(false);
     }
@@ -299,6 +341,7 @@ export function ResultsClient() {
   }
 
   const { product, facets } = state.result;
+  const brands = state.result.brands ?? [];
   const best = offers[0];
 
   return (
@@ -419,6 +462,40 @@ export function ResultsClient() {
             </div>
           ) : null}
         </section>
+
+        {state.result.broadenedFrom ? (
+          <div className="mt-3 rounded-md bg-warning-soft px-3 py-2 text-[11px] leading-6 text-warning">
+            در محدوده «{state.result.broadenedFrom}» فروشگاهی پیدا نشد؛ نتایج از «
+            {state.result.appliedArea?.label ?? state.intent.area.label}» است.
+          </div>
+        ) : null}
+
+        {brands.length > 1 ? (
+          <section className="mt-4" role="group" aria-label="انتخاب برند">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <span className="shrink-0 text-[11px] text-muted">برندها:</span>
+              {brands.map((option) => {
+                const selected = product.brand === option.brand;
+                return (
+                  <button
+                    key={option.brand}
+                    type="button"
+                    onClick={() => void switchBrand(option)}
+                    disabled={loading}
+                    aria-pressed={selected}
+                    className={`min-h-9 whitespace-nowrap rounded-full border px-3 text-[11px] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                      selected
+                        ? "border-accent bg-accent text-accent-ink"
+                        : "border-line bg-surface text-muted hover:text-ink"
+                    }`}
+                  >
+                    <span dir="auto">{option.brand}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
         <section className="mt-4 flex gap-3 rounded-lg border border-line bg-surface p-3">
           {product.images[0] ? (

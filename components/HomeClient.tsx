@@ -56,12 +56,6 @@ type ParseResponse = {
   };
 };
 
-type PendingSearch = {
-  intent: Intent;
-  productLabel: string;
-  areaLabel: string;
-};
-
 type FailureState = SearchFailure & {
   message: string;
   intent: Intent;
@@ -92,11 +86,6 @@ export function HomeClient() {
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
-  const [stage, setStage] = useState<"input" | "confirm">("input");
-  const [pending, setPending] = useState<PendingSearch | null>(null);
-  const [correcting, setCorrecting] = useState(false);
-  const [manualCategory, setManualCategory] = useState<CategoryGroup | null>(null);
-  const [manualArea, setManualArea] = useState<string | null>(null);
   const [failure, setFailure] = useState<FailureState | null>(null);
 
   const categoryOptions = extraCategory ? [...CATEGORIES, extraCategory] : CATEGORIES;
@@ -123,7 +112,6 @@ export function HomeClient() {
 
   function chooseCategory(option: CategoryOption) {
     setCategory(option.id);
-    if (correcting) setManualCategory(option.id);
     setFailure(null);
     setHint(null);
   }
@@ -134,7 +122,6 @@ export function HomeClient() {
     setFailure(null);
     if (label !== "نزدیک من") {
       setAreaLabel(label);
-      if (correcting) setManualArea(label);
       setCoords(null);
       setCoordsSource(null);
       return;
@@ -150,7 +137,6 @@ export function HomeClient() {
         setCoords({ lat: position.coords.latitude, lon: position.coords.longitude });
         setCoordsSource("gps");
         setAreaLabel("نزدیک من");
-        if (correcting) setManualArea("نزدیک من");
         setLocating(false);
       },
       () => {
@@ -166,7 +152,6 @@ export function HomeClient() {
     setCoords({ lat, lon });
     setCoordsSource("map");
     setAreaLabel("نزدیک من");
-    if (correcting) setManualArea("نزدیک من");
     setHint(null);
     setFailure(null);
     setError(null);
@@ -202,7 +187,6 @@ export function HomeClient() {
         payment: { creditPreferred: false, requireCredit, providers: [] },
         openNow: false,
       });
-      setPending({ intent, ...context });
       await runSearch(intent, context);
       return;
     }
@@ -218,7 +202,7 @@ export function HomeClient() {
       const parsed = (await intentResponse.json()) as ParseResponse;
       const detected = parsed.detected;
 
-      const resolvedCategory = manualCategory ?? detected?.category ?? category;
+      const resolvedCategory = detected?.category ?? category;
       const knownCategoryLabel = resolvedCategory
         ? categoryOptions.find((item) => item.id === resolvedCategory)?.label ??
           (resolvedCategory === "other" ? "محصول" : null)
@@ -236,8 +220,8 @@ export function HomeClient() {
         });
       }
 
-      const effectiveDetectedArea = manualArea ?? detected?.areaLabel ?? null;
-      let resolvedArea = effectiveDetectedArea ?? areaLabel;
+      const effectiveDetectedArea = detected?.areaLabel ?? null;
+      const resolvedArea = effectiveDetectedArea ?? areaLabel;
       if (effectiveDetectedArea) {
         if (!AREAS.includes(effectiveDetectedArea) && !extraAreas.includes(effectiveDetectedArea)) {
           setExtraAreas((prev) =>
@@ -280,17 +264,6 @@ export function HomeClient() {
         payment: { ...parsed.intent.payment, requireCredit },
       });
       const context = { productLabel, areaLabel: resolvedAreaValue };
-      setPending({ intent, ...context });
-
-      const dynamicCategory = resolvedCategoryValue === "other";
-      const dynamicArea = !AREAS.includes(resolvedAreaValue);
-      const needsConfirmation =
-        (dynamicCategory && manualCategory === null) || (dynamicArea && manualArea === null);
-      if (needsConfirmation) {
-        setStage("confirm");
-        return;
-      }
-
       await runSearch(intent, context);
     } catch (err) {
       setError(err instanceof Error ? err.message : "چیزی درست پیش نرفت. دوباره تلاش کنید.");
@@ -318,8 +291,6 @@ export function HomeClient() {
           error?: string;
         };
         if (searchResponse.status === 404 && payload.reason) {
-          setStage("input");
-          setPending(null);
           setHint(null);
           setFailure({
             reason: payload.reason,
@@ -336,30 +307,20 @@ export function HomeClient() {
         throw new Error(payload.error ?? "محصولی پیدا نشد.");
       }
       const result = (await searchResponse.json()) as SearchResult;
-      sessionStorage.setItem("hamqadam:last", JSON.stringify({ intent, result }));
+      const appliedIntent = result.appliedArea
+        ? {
+            ...intent,
+            area: result.appliedArea,
+            query: result.searchQuery ?? intent.query,
+          }
+        : intent;
+      sessionStorage.setItem("hamqadam:last", JSON.stringify({ intent: appliedIntent, result }));
       router.push("/results");
     } catch (err) {
       setError(err instanceof Error ? err.message : "چیزی درست پیش نرفت. دوباره تلاش کنید.");
     } finally {
       setLoading(false);
     }
-  }
-
-  function confirmSearch() {
-    if (pending) {
-      void runSearch(pending.intent, {
-        productLabel: pending.productLabel,
-        areaLabel: pending.areaLabel,
-      });
-    }
-  }
-
-  function rejectSearch() {
-    setStage("input");
-    setPending(null);
-    setFailure(null);
-    setCorrecting(true);
-    setHint("محدوده یا محصول را اصلاح کن و دوباره بفرست.");
   }
 
   async function retryBroaderArea() {
@@ -375,7 +336,6 @@ export function HomeClient() {
     setCoordsSource(null);
     setFailure(null);
     setHint(null);
-    setPending({ intent: widerIntent, ...context });
     await runSearch(widerIntent, context, productId);
   }
 
@@ -391,10 +351,6 @@ export function HomeClient() {
     setFailure(null);
     setHint(null);
     setError(null);
-    setCorrecting(false);
-    setManualCategory(null);
-    setManualArea(null);
-    setPending({ intent, ...context });
     await runSearch(intent, context, suggestion.productId);
   }
 
@@ -405,48 +361,13 @@ export function HomeClient() {
           onSubmit={prepareSearch}
           className="mt-6 rounded-lg border border-line bg-surface p-4 shadow-card sm:p-5"
         >
-          {stage === "confirm" && pending ? (
-            <div>
-              <p className="text-sm font-bold leading-7">
-                دنبال فروشنده {pending.productLabel} {areaPhrase(pending.areaLabel)} بگردم؟
-              </p>
-              <div className="mt-5 flex gap-2">
-                <button
-                  type="button"
-                  onClick={confirmSearch}
-                  disabled={loading}
-                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-accent px-4 text-sm font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {loading ? (
-                    <>
-                      <span className="size-4 animate-spin rounded-full border-2 border-accent-ink/35 border-t-accent-ink" />
-                      در حال جست‌وجو…
-                    </>
-                  ) : (
-                    <>
-                      <Search size={17} />
-                      بله
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={rejectSearch}
-                  disabled={loading}
-                  className="inline-flex min-h-11 flex-1 items-center justify-center whitespace-nowrap rounded-md border border-line bg-surface px-4 text-sm font-bold text-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  نه، اشتباهه
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <label
-                htmlFor="request"
-                className={`text-sm font-bold ${hint ? "text-danger" : ""}`}
-              >
-                {hint ?? "همه فروشگاه‌های محل، کف دست شما!"}
-              </label>
+          <>
+            <label
+              htmlFor="request"
+              className={`text-sm font-bold ${hint ? "text-danger" : ""}`}
+            >
+              {hint ?? "همه فروشگاه‌های محل، کف دست شما!"}
+            </label>
               <textarea
                 id="request"
                 value={text}
@@ -454,9 +375,6 @@ export function HomeClient() {
                   setText(event.target.value);
                   setHint(null);
                   setFailure(null);
-                  setCorrecting(false);
-                  setManualCategory(null);
-                  setManualArea(null);
                 }}
                 rows={1}
                 placeholder="مثلاً: گوشی سامسونگ S25 FE ۲۵۶ تا ۲۰۰ میلیون، فردوسی"
@@ -628,7 +546,6 @@ export function HomeClient() {
                 قیمت‌ها ثبت‌شده‌اند؛ موجودی را قبل از رفتن از فروشگاه می‌پرسیم.
               </p>
             </>
-          )}
 
           {error ? (
             <div className="mt-5 rounded-md bg-danger-soft px-3 py-2 text-xs leading-6 text-danger">

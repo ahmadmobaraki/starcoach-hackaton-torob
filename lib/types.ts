@@ -2,6 +2,7 @@ export type CategoryGroup = "phone" | "watch" | "lighting" | "home" | "tools" | 
 
 export type Intent = {
   rawText: string;
+  query?: string;
   category: CategoryGroup;
   brand?: string;
   model?: string;
@@ -100,6 +101,17 @@ export type SearchResult = {
   product: ProductSummary;
   offers: OfferWithShop[];
   facets: Facets;
+  brands?: BrandOption[];
+  appliedArea?: Intent["area"];
+  broadenedFrom?: string;
+  searchQuery?: string;
+};
+
+export type BrandOption = {
+  brand: string;
+  productId: string;
+  title: string;
+  minPrice: number | null;
 };
 
 export type SearchSuggestion = {
