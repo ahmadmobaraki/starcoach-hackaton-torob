@@ -1,4 +1,4 @@
-import { toEnDigits } from "./format";
+import { normalizeText, toEnDigits } from "./format";
 import { llmJson } from "./llm";
 import type { CategoryGroup, Intent } from "./types";
 
@@ -9,6 +9,21 @@ const BRANDS = [
 ];
 
 const PAYMENT_PROVIDERS = ["ترب‌پی", "اسنپ‌پی", "دیجی‌پی", "تارا", "ازکی‌وام", "ازکی وام"];
+
+const CATEGORY_LABELS: Record<CategoryGroup, string> = {
+  phone: "گوشی",
+  watch: "ساعت",
+  lighting: "روشنایی",
+  home: "لوازم خانگی",
+  tools: "ابزار و برق",
+  other: "محصول",
+};
+
+export type IntentDetection = {
+  category: CategoryGroup | null;
+  categoryLabel: string | null;
+  areaLabel: string | null;
+};
 
 function detectCategory(text: string): CategoryGroup {
   if (/گوشی|موبایل|آیفون|iphone|samsung|سامسونگ|شیائومی|پیکسل/i.test(text)) return "phone";
@@ -61,17 +76,47 @@ function detectBudget(text: string): number | undefined {
   return value > 1_000_000 ? Math.round(value) : undefined;
 }
 
-function detectArea(text: string): Intent["area"] {
-  if (/نزدیک من|این اطراف|همین حوالی/.test(text)) {
-    return { label: "نزدیک من", radiusKm: 5 };
-  }
-  if (/همه تهران|کل تهران|هر جای تهران/.test(text)) {
-    return { label: "همه تهران", radiusKm: 30 };
-  }
+function detectAreaLabel(text: string): string | null {
+  if (/نزدیک من|این اطراف|همین حوالی/.test(text)) return "نزدیک من";
+  if (/همه تهران|کل تهران|هر جای تهران/.test(text)) return "همه تهران";
   if (/فردوسی|شیخ هادی|علاءالدین|پاساژ|بازار موبایل|جمهوری/.test(text)) {
-    return { label: "فردوسی و شیخ هادی", radiusKm: 4 };
+    return "فردوسی و شیخ هادی";
   }
-  return { label: "فردوسی و شیخ هادی", radiusKm: 4 };
+  return null;
+}
+
+function canonicalAreaLabel(label: string): string {
+  const trimmed = label.trim();
+  if (/همه تهران|کل تهران|هر جای تهران/.test(trimmed)) return "همه تهران";
+  if (/نزدیک من|این اطراف|همین حوالی/.test(trimmed)) return "نزدیک من";
+  if (/فردوسی|شیخ هادی|علاءالدین|پاساژ|بازار موبایل|جمهوری/.test(trimmed)) {
+    return "فردوسی و شیخ هادی";
+  }
+  return trimmed;
+}
+
+function areaRadius(label: string): number {
+  if (label === "همه تهران") return 30;
+  if (label === "نزدیک من") return 5;
+  return 4;
+}
+
+function mentionsArea(text: string, label: string): boolean {
+  const normalized = normalizeText(text);
+  if (label === "نزدیک من") return /نزدیک من|اطراف|حوالی/.test(normalized);
+  if (label === "همه تهران") return /تهران/.test(normalized);
+  if (label === "فردوسی و شیخ هادی") {
+    return /فردوسی|شیخ هادی|علاءالدین|پاساژ|جمهوری/.test(normalized);
+  }
+  const tokens = normalizeText(label)
+    .split(" ")
+    .filter((token) => token.length >= 3);
+  return tokens.length > 0 && tokens.some((token) => normalized.includes(token));
+}
+
+function detectArea(text: string): Intent["area"] {
+  const label = detectAreaLabel(text) ?? "فردوسی و شیخ هادی";
+  return { label, radiusKm: areaRadius(label) };
 }
 
 function detectPayment(text: string): Intent["payment"] {
@@ -133,15 +178,16 @@ function coerceIntent(raw: Record<string, unknown>, fallback: Intent): Intent {
   };
 
   const areaRaw = (raw.area ?? {}) as Record<string, unknown>;
-  const areaLabel = typeof areaRaw.label === "string" ? areaRaw.label : fallback.area.label;
-  const area =
-    areaLabel === "فردوسی و شیخ هادی" || /فردوسی|شیخ هادی/.test(areaLabel)
-      ? { label: "فردوسی و شیخ هادی", radiusKm: 4 }
-      : areaLabel === "نزدیک من"
-        ? { label: "نزدیک من", radiusKm: 5 }
-        : areaLabel === "همه تهران"
-          ? { label: "همه تهران", radiusKm: 30 }
-          : fallback.area;
+  const rawAreaLabel = typeof areaRaw.label === "string" ? areaRaw.label.trim() : "";
+  const areaLabel = rawAreaLabel
+    ? canonicalAreaLabel(rawAreaLabel)
+    : fallback.area.label;
+  const rawRadius = Number(areaRaw.radiusKm);
+  const area = {
+    label: areaLabel,
+    radiusKm:
+      Number.isFinite(rawRadius) && rawRadius > 0 ? rawRadius : areaRadius(areaLabel),
+  };
 
   const paymentRaw = (raw.payment ?? {}) as Record<string, unknown>;
   const payment = {
@@ -181,26 +227,73 @@ function coerceIntent(raw: Record<string, unknown>, fallback: Intent): Intent {
 export async function parseIntents(
   text: string,
   current?: Partial<Intent>,
-): Promise<{ intent: Intent; missing: string[]; usedLlm: boolean }> {
+): Promise<{
+  intent: Intent;
+  missing: string[];
+  usedLlm: boolean;
+  detected: IntentDetection;
+}> {
   const fallback = fallbackIntent(text, current);
   const llm = await llmJson<Record<string, unknown>>({
     system: `تو یک تحلیل‌گر نیت خرید فارسی هستی. فقط JSON برگردان.
-فیلدها: category (phone|watch|lighting|home|tools|other)، brand، model،
-variant {storageGb, ramGb, color, condition}، budgetMaxToman (عدد تومان)،
+فیلدها: category (phone|watch|lighting|home|tools|other)، categoryLabel (نام فارسی دسته)،
+brand، model، variant {storageGb, ramGb, color, condition}، budgetMaxToman (عدد تومان)،
 area {label, radiusKm}، payment {creditPreferred, requireCredit, providers}،
 warrantyMinMonths، openNow، deadline (today|tomorrow|this_week).
 هیچ چیزی از خودت نساز. اگر چیزی در متن نبود null بگذار. بودجه‌ی «۲۰۰ میلیون» را 200000000 برگردان.
+اگر محصول در دسته‌های بالا نیست category را other و categoryLabel را نام کوتاه فارسی محصول بگذار.
 دسته را از کلمات فارسی تشخیص بده: گوشی/موبایل phone، ساعت watch، چراغ/لوستر lighting،
-لوازم خانگی home، ابزار/کابل/کلید tools.`,
+لوازم خانگی home، ابزار/کابل/کلید tools.
+area.label را فقط وقتی بگذار که محدوده صریحاً در متن آمده باشد؛ می‌تواند نام محله باشد (مثلاً «میرداماد»)، وگرنه null.`,
     user: text,
     timeoutMs: 7000,
     maxTokens: 600,
   });
 
   const intent = llm ? coerceIntent(llm, fallback) : fallback;
+
+  const categories: CategoryGroup[] = ["phone", "watch", "lighting", "home", "tools", "other"];
+  const llmCategory =
+    llm && categories.includes(llm.category as CategoryGroup)
+      ? (llm.category as CategoryGroup)
+      : null;
+  const llmCategoryLabel =
+    llm && typeof llm.categoryLabel === "string" && llm.categoryLabel.trim()
+      ? llm.categoryLabel.trim()
+      : null;
+  const regexCategory = detectCategory(text);
+  const detectedCategory: CategoryGroup | null =
+    llmCategory && llmCategory !== "other"
+      ? llmCategory
+      : regexCategory !== "other"
+        ? regexCategory
+        : llmCategory === "other" && llmCategoryLabel
+          ? "other"
+          : null;
+  const detectedCategoryLabel =
+    llmCategoryLabel ?? (detectedCategory ? CATEGORY_LABELS[detectedCategory] : null);
+
+  const regexArea = detectAreaLabel(text);
+  const llmAreaRaw =
+    llm && typeof (llm.area as Record<string, unknown> | undefined)?.label === "string"
+      ? String((llm.area as Record<string, unknown>).label).trim()
+      : "";
+  const llmAreaLabel = llmAreaRaw ? canonicalAreaLabel(llmAreaRaw) : "";
+  const detectedAreaLabel =
+    regexArea ?? (llmAreaLabel && mentionsArea(text, llmAreaLabel) ? llmAreaLabel : null);
+
   const missing: string[] = [];
   if (intent.category === "other" && !intent.model) missing.push("دسته محصول");
   if (!intent.model && !intent.brand) missing.push("مدل یا برند");
   if (!intent.area.label) missing.push("محدوده");
-  return { intent, missing, usedLlm: Boolean(llm) };
+  return {
+    intent,
+    missing,
+    usedLlm: Boolean(llm),
+    detected: {
+      category: detectedCategory,
+      categoryLabel: detectedCategoryLabel,
+      areaLabel: detectedAreaLabel,
+    },
+  };
 }

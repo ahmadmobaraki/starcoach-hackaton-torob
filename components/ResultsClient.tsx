@@ -332,7 +332,9 @@ export function ResultsClient() {
             {state.intent.payment.requireCredit ? (
               <StatusChip tone="warning" icon={<CreditCard size={12} />}>فقط پرداخت اعتباری</StatusChip>
             ) : null}
-            <span className="text-[11px] text-muted">«{state.intent.rawText.slice(0, 64)}{state.intent.rawText.length > 64 ? "…" : ""}»</span>
+            {state.intent.rawText ? (
+              <span className="text-[11px] text-muted">«{state.intent.rawText.slice(0, 64)}{state.intent.rawText.length > 64 ? "…" : ""}»</span>
+            ) : null}
           </div>
 
           {showEdit ? (

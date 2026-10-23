@@ -343,7 +343,20 @@ export function getOffers(productId: string, intent: Intent): { offers: OfferWit
   const center =
     intent.area.lat != null && intent.area.lon != null
       ? { lat: intent.area.lat, lon: intent.area.lon }
-      : AREA_CENTERS[intent.area.label] ?? null;
+      : AREA_CENTERS[intent.area.label] ??
+        (intent.area.label === "همه تهران"
+          ? null
+          : (() => {
+              const row = db
+                .prepare(
+                  `SELECT AVG(lat) AS lat, AVG(lon) AS lon FROM shops
+                   WHERE location_label = ? AND lat IS NOT NULL AND lon IS NOT NULL`,
+                )
+                .get(intent.area.label) as { lat: number | null; lon: number | null } | undefined;
+              return row && row.lat != null && row.lon != null
+                ? { lat: row.lat, lon: row.lon }
+                : null;
+            })());
 
   let offers: OfferWithShop[] = rows.map((row) => {
     const shop = shopFromRow(row);
@@ -375,6 +388,13 @@ export function getOffers(productId: string, intent: Intent): { offers: OfferWit
     offers = offers.filter((o) => ["فردوسی", "شیخ هادی"].includes(o.shop.locationLabel ?? ""));
   } else if (intent.area.lat != null && intent.area.lon != null) {
     offers = offers.filter((o) => o.distanceKm != null && o.distanceKm <= intent.area.radiusKm);
+  } else if (intent.area.label !== "همه تهران") {
+    const knownArea = db
+      .prepare("SELECT 1 AS found FROM shops WHERE location_label = ? LIMIT 1")
+      .get(intent.area.label);
+    offers = knownArea
+      ? offers.filter((o) => o.shop.locationLabel === intent.area.label)
+      : [];
   }
 
   if (intent.budgetMaxToman != null) {

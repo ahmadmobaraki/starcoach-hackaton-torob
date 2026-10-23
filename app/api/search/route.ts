@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const result = search(body.intent, body.productId);
     if (!result) {
       return NextResponse.json(
-        { error: "برای این درخواست محصولی با قیمت ثبت‌شده پیدا نشد." },
+        { error: "برای این محدوده یا محصول، قیمت ثبت‌شده‌ای پیدا نشد." },
         { status: 404 },
       );
     }
