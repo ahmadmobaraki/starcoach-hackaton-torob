@@ -187,29 +187,7 @@ export function HomeClient() {
             className="mt-2 w-full resize-none rounded-md border border-line bg-bg px-3 py-2.5 text-[15px] leading-7 outline-none transition-colors placeholder:text-muted/80 focus:border-accent"
           />
 
-          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="دسته محصول">
-            {CATEGORIES.map((option) => {
-              const selected = option.id === category;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => chooseCategory(option)}
-                  aria-pressed={selected}
-                  className={`inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs transition-colors ${
-                    selected
-                      ? "border-accent bg-accent text-accent-ink"
-                      : "border-line bg-surface text-muted hover:border-accent/40 hover:text-ink"
-                  }`}
-                >
-                  {option.icon}
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
             <div>
               <div className="mb-1.5 flex items-center gap-1 text-[11px] text-muted">
                 <MapPin size={13} />
@@ -262,18 +240,40 @@ export function HomeClient() {
             </div>
           </div>
 
-          <label className="mt-3 flex items-start gap-2 text-xs text-muted">
+          <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="دسته محصول">
+            {CATEGORIES.map((option) => {
+              const selected = option.id === category;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => chooseCategory(option)}
+                  aria-pressed={selected}
+                  className={`inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs transition-colors ${
+                    selected
+                      ? "border-accent bg-accent text-accent-ink"
+                      : "border-line bg-surface text-muted hover:border-accent/40 hover:text-ink"
+                  }`}
+                >
+                  {option.icon}
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <label className="mt-10 flex items-center gap-2 text-xs text-muted">
             <input
               type="checkbox"
               checked={requireCredit}
               onChange={(event) => setRequireCredit(event.target.checked)}
-              className="mt-1 size-4 accent-[var(--color-accent)]"
+              className="size-4 shrink-0 accent-[var(--color-accent)]"
             />
-            <span>فقط فروشگاه‌هایی که پرداخت اعتباری دارند</span>
+            <span>فقط خرید اعتباری</span>
           </label>
 
           {error ? (
-            <div className="mt-3 rounded-md bg-danger-soft px-3 py-2 text-xs leading-6 text-danger">
+            <div className="mt-5 rounded-md bg-danger-soft px-3 py-2 text-xs leading-6 text-danger">
               {error}
             </div>
           ) : null}
@@ -281,7 +281,7 @@ export function HomeClient() {
           <button
             type="submit"
             disabled={loading || !text.trim()}
-            className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-md bg-accent px-4 text-sm font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-md bg-accent px-4 text-sm font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? (
               <>

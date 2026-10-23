@@ -12,12 +12,6 @@ export function Header() {
           <span className="text-base font-extrabold tracking-tight">هم‌قدم</span>
           <span className="hidden text-[11px] text-muted sm:inline">قبل از رفتن، مطمئن شو</span>
         </Link>
-        <Link
-          href="/data"
-          className="rounded-full px-3 py-2 text-xs text-muted transition-colors hover:bg-surface hover:text-ink"
-        >
-          درباره داده
-        </Link>
       </div>
     </header>
   );

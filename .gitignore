@@ -11,3 +11,4 @@ data/*.db-*
 .DS_Store
 ux/prototype
 .vercel
+*.tsbuildinfo
